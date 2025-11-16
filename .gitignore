@@ -1,0 +1,89 @@
+# ===========================================
+# Node.js / Express Backend .gitignore
+# ===========================================
+
+# Node modules
+node_modules/
+
+# Environment files (VERY IMPORTANT)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Debug files
+.DS_Store
+*.swp
+*.swo
+
+# Database dumps
+*.sql
+*.sqlite
+*.db
+dump.rdb
+
+# Dist / build outputs
+dist/
+build/
+coverage/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# PM2 logs
+.pids
+*.pid
+*.seed
+*.pid.lock
+
+# VSCode settings (optional)
+.vscode/
+.history/
+
+# Uploads folder (if storing user uploads locally)
+uploads/
+public/uploads/
+
+# Cache
+.cache/
+.eslintcache
+
+# TypeScript build files
+*.tsbuildinfo
+
+# Lock files (optional)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Serverless / deployment
+.serverless/
+.vercel/
+.netlify/
+
+# Docker
+docker-compose.override.yml
+docker-compose.debug.yml
+
+# Prisma (if used)
+prisma/dev.db
+prisma/dev.sqlite
+prisma/migrations/
+
+# Firebase / GCP
+.firebase/
+*.firebaserc
+
+# Misc
+*.orig
