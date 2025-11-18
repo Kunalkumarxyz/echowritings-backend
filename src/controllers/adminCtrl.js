@@ -20,7 +20,7 @@ async function resendConfirm(req, res) {
     sub.verified = false;
     await sub.save();
 
-    const confirmUrl = `${process.env.BASE_URL || 'http://localhost:4000'}/api/confirm?token=${token}`;
+    const confirmUrl = `${process.env.BASE_URL || 'https://echowritings-backend.onrender.com'}/api/confirm?token=${token}`;
 
     try {
       await sendMail({
