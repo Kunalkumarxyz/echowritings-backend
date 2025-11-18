@@ -1,4 +1,4 @@
-﻿// src/controllers/subscribeCtrl.js
+// src/controllers/subscribeCtrl.js
 const crypto = require("crypto");
 const Subscriber = require("../models/Subscriber");
 const { sendMail } = require("../services/mailer");
@@ -32,11 +32,42 @@ async function subscribe(req, res) {
       return res.status(500).json({ error: "Database error" });
     }
 
-    const confirmUrl = `${process.env.BASE_URL || "https://echowritings-backend.onrender.com"}/api/confirm?token=${token}`;
-    const html = `<p>Thanks for subscribing. Click to confirm:</p><p><a href="${confirmUrl}">${confirmUrl}</a></p>`;
+    // --- Environment-aware URLs ---
+    // FRONTEND_URL should be your public frontend (e.g. https://echowritings.vercel.app)
+    // BASE_URL should be your backend public URL (e.g. https://echowritings-backend.onrender.com)
+    const FRONTEND = (process.env.FRONTEND_URL || "").replace(/\/$/, "");
+    const BASE = (process.env.BASE_URL || "").replace(/\/$/, "");
+
+    // debug log to help you see what's set in production logs
+    console.log("[DEBUG] FRONTEND_URL:", FRONTEND || "(not set)");
+    console.log("[DEBUG] BASE_URL:", BASE || "(not set)");
+
+    // Build two links:
+    // 1) friendlyLink → points to frontend confirmation page (recommended UX)
+    // 2) directBackendLink → direct backend confirm endpoint (fallback)
+    const safeToken = encodeURIComponent(token);
+    const friendlyLink = FRONTEND
+      ? `${FRONTEND}/confirm?token=${safeToken}`
+      : (BASE ? `${BASE}/api/confirm?token=${safeToken}` : `http://localhost:${process.env.PORT || 4000}/api/confirm?token=${safeToken}`);
+
+    const directBackendLink = BASE
+      ? `${BASE}/api/confirm?token=${safeToken}`
+      : `http://localhost:${process.env.PORT || 4000}/api/confirm?token=${safeToken}`;
+
+    // Email HTML: friendly link (frontend) + backend link as fallback (hidden visually but present)
+    const html = `
+      <p>Thanks for subscribing to EchoWritings.</p>
+      <p>Click the button below to confirm your subscription:</p>
+      <p style="margin:18px 0;">
+        <a href="${friendlyLink}" style="display:inline-block;padding:10px 18px;background:#f59e0b;color:#fff;border-radius:8px;text-decoration:none;">Confirm subscription</a>
+      </p>
+      <p style="font-size:12px;color:#666;">If the button doesn't work, open this link in your browser:</p>
+      <p style="word-break:break-all;"><a href="${directBackendLink}">${directBackendLink}</a></p>
+    `;
+    const text = `Confirm your subscription: ${directBackendLink}`;
 
     try {
-      await sendMail({ to: email, subject: "Confirm your subscription", html, text: `Confirm: ${confirmUrl}` });
+      await sendMail({ to: email, subject: "Confirm your EchoWritings subscription", html, text, from: process.env.FROM_EMAIL });
       console.log("[DEBUG] sendMail succeeded for", email);
     } catch (mailErr) {
       console.error("[ERROR] sendMail failed:", mailErr);
@@ -50,16 +81,15 @@ async function subscribe(req, res) {
       if (adminEmail) {
         await sendMail({
           to: adminEmail,
+          from: process.env.FROM_EMAIL,
           subject: `New subscriber: ${email}`,
           text: `New subscriber: ${email}\nVerified: false\nTime: ${new Date().toISOString()}`
         });
         console.log("[DEBUG] Admin notified about new subscriber");
       } else {
-        // if no admin email configured, just log
         console.log("[DEBUG] Admin email not configured; skipping admin notify");
       }
     } catch (adminErr) {
-      // only log — do not fail the subscribe request
       console.error("[WARN] Admin notify failed:", adminErr);
     }
 
@@ -79,7 +109,9 @@ async function confirm(req, res) {
     sub.verified = true;
     sub.token = null;
     await sub.save();
-    const front = process.env.FRONTEND_URL || "https://www.echowritings.com/";
+
+    const front = (process.env.FRONTEND_URL || "https://www.echowritings.com").replace(/\/$/, "");
+    // redirect to a friendly frontend page (or fallback if FRONTEND_URL not set)
     return res.redirect(`${front}/subscribe-thanks`);
   } catch (err) {
     console.error("Confirm error:", err);
@@ -94,7 +126,7 @@ async function unsubscribe(req, res) {
     const sub = await Subscriber.findOne({ unsubToken: token });
     if (!sub) return res.status(400).send("Invalid token");
     await Subscriber.deleteOne({ _id: sub._id });
-    const front = process.env.FRONTEND_URL || "https://www.echowritings.com/";
+    const front = (process.env.FRONTEND_URL || "https://www.echowritings.com").replace(/\/$/, "");
     return res.redirect(`${front}/unsubscribed`);
   } catch (err) {
     console.error("Unsubscribe error:", err);
