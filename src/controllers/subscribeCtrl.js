@@ -46,23 +46,28 @@ async function subscribe(req, res) {
     // 1) friendlyLink → points to frontend confirmation page (recommended UX)
     // 2) directBackendLink → direct backend confirm endpoint (fallback)
     const safeToken = encodeURIComponent(token);
-    const friendlyLink = FRONTEND
-      ? `${FRONTEND}/confirm?token=${safeToken}`
-      : (BASE ? `${BASE}/api/confirm?token=${safeToken}` : `http://localhost:${process.env.PORT || 4000}/api/confirm?token=${safeToken}`);
 
+    // Use directBackendLink as primary button target for reliability (avoids SPA routing issues)
     const directBackendLink = BASE
       ? `${BASE}/api/confirm?token=${safeToken}`
       : `http://localhost:${process.env.PORT || 4000}/api/confirm?token=${safeToken}`;
 
-    // Email HTML: friendly link (frontend) + backend link as fallback (hidden visually but present)
+    const friendlyLink = FRONTEND
+      ? `${FRONTEND}/confirm?token=${safeToken}`
+      : directBackendLink;
+
+    // Email HTML: button points to direct backend confirm (reliable). Friendly link shown as fallback.
     const html = `
       <p>Thanks for subscribing to EchoWritings.</p>
       <p>Click the button below to confirm your subscription:</p>
       <p style="margin:18px 0;">
-        <a href="${friendlyLink}" style="display:inline-block;padding:10px 18px;background:#f59e0b;color:#fff;border-radius:8px;text-decoration:none;">Confirm subscription</a>
+        <a href="${directBackendLink}" style="display:inline-block;padding:10px 18px;background:#f59e0b;color:#fff;border-radius:8px;text-decoration:none;">Confirm subscription</a>
       </p>
-      <p style="font-size:12px;color:#666;">If the button doesn't work, open this link in your browser:</p>
+      <p style="font-size:12px;color:#666;">If the button doesn't work, open one of these links in your browser:</p>
+      <p style="word-break:break-all;"><a href="${friendlyLink}">${friendlyLink}</a></p>
       <p style="word-break:break-all;"><a href="${directBackendLink}">${directBackendLink}</a></p>
+      <hr/>
+      <p style="font-size:12px;color:#999;">If you didn't request this, ignore this email.</p>
     `;
     const text = `Confirm your subscription: ${directBackendLink}`;
 
@@ -71,7 +76,6 @@ async function subscribe(req, res) {
       console.log("[DEBUG] sendMail succeeded for", email);
     } catch (mailErr) {
       console.error("[ERROR] sendMail failed:", mailErr);
-      // return 500 here so you can fix mailer later
       return res.status(500).json({ error: "Email send failed" });
     }
 
@@ -104,14 +108,60 @@ async function confirm(req, res) {
   try {
     const { token } = req.query;
     if (!token) return res.status(400).send("Token required");
-    const sub = await Subscriber.findOne({ token });
-    if (!sub) return res.status(400).send("Invalid token");
+
+    // Log incoming token for debugging
+    console.log("[DEBUG] confirm called - raw token:", token);
+
+    // 1) Try exact token match
+    let sub = await Subscriber.findOne({ token });
+
+    // 2) fallback: try decodeURIComponent (in case link was encoded/altered)
+    if (!sub) {
+      try {
+        const decoded = decodeURIComponent(token);
+        if (decoded && decoded !== token) {
+          console.log("[DEBUG] trying decoded token:", decoded);
+          sub = await Subscriber.findOne({ token: decoded });
+        }
+      } catch (e) {
+        console.warn("[DEBUG] decodeURIComponent failed:", e && e.message);
+      }
+    }
+
+    // 3) DEV-only partial-match helper: useful when testing (DO NOT rely on in production)
+    if (!sub && process.env.NODE_ENV !== "production") {
+      try {
+        console.log("[DEBUG] trying partial token search (dev only)");
+        // escape regex metacharacters
+        const esc = token.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+        const maybe = await Subscriber.findOne({ token: { $regex: esc } });
+        if (maybe) {
+          console.log("[DEBUG] partial match found for token. stored token:", maybe.token);
+          sub = maybe;
+        }
+      } catch (e) {
+        console.warn("[DEBUG] partial token search failed:", e && e.message);
+      }
+    }
+
+    if (!sub) {
+      console.warn("[WARN] confirm: token not found; token:", token);
+      if (process.env.NODE_ENV !== "production") {
+        // provide extra info in dev for easier debugging
+        return res.status(400).send(`
+          <h2>Invalid token</h2>
+          <p>Token received: <pre>${token}</pre></p>
+          <p>Check server logs and your database for stored tokens.</p>
+        `);
+      }
+      return res.status(400).send("Invalid token");
+    }
+
     sub.verified = true;
     sub.token = null;
     await sub.save();
 
     const front = (process.env.FRONTEND_URL || "https://www.echowritings.com").replace(/\/$/, "");
-    // redirect to a friendly frontend page (or fallback if FRONTEND_URL not set)
     return res.redirect(`${front}/subscribe-thanks`);
   } catch (err) {
     console.error("Confirm error:", err);
