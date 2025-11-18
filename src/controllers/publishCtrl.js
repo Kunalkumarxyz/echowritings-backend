@@ -12,7 +12,7 @@ async function publish(req, res) {
 
     const subs = await Subscriber.find({ verified: true, bounced: false }).limit(500);
     for (const s of subs) {
-      const unsub = `${process.env.BASE_URL || 'http://localhost:4000'}/api/unsubscribe?token=${s.unsubToken}`;
+      const unsub = `${process.env.BASE_URL || 'https://echowritings-backend.onrender.com'}/api/unsubscribe?token=${s.unsubToken}`;
       const html = `<h3>${title}</h3><p>${excerpt || ''}</p><p><a href="${url}">Read article</a></p><hr/><p><a href="${unsub}">Unsubscribe</a></p>`;
       await sendMail({ to: s.email, subject: `New article: ${title}`, html, text: `${title}\n${url}\nUnsubscribe: ${unsub}` });
     }
