@@ -32,7 +32,7 @@ async function subscribe(req, res) {
       return res.status(500).json({ error: "Database error" });
     }
 
-    const confirmUrl = `${process.env.BASE_URL || "http://localhost:4000"}/api/confirm?token=${token}`;
+    const confirmUrl = `${process.env.BASE_URL || "https://echowritings-backend.onrender.com"}/api/confirm?token=${token}`;
     const html = `<p>Thanks for subscribing. Click to confirm:</p><p><a href="${confirmUrl}">${confirmUrl}</a></p>`;
 
     try {
@@ -79,7 +79,7 @@ async function confirm(req, res) {
     sub.verified = true;
     sub.token = null;
     await sub.save();
-    const front = process.env.FRONTEND_URL || "http://localhost:5173";
+    const front = process.env.FRONTEND_URL || "https://www.echowritings.com/";
     return res.redirect(`${front}/subscribe-thanks`);
   } catch (err) {
     console.error("Confirm error:", err);
@@ -94,7 +94,7 @@ async function unsubscribe(req, res) {
     const sub = await Subscriber.findOne({ unsubToken: token });
     if (!sub) return res.status(400).send("Invalid token");
     await Subscriber.deleteOne({ _id: sub._id });
-    const front = process.env.FRONTEND_URL || "http://localhost:5173";
+    const front = process.env.FRONTEND_URL || "https://www.echowritings.com/";
     return res.redirect(`${front}/unsubscribed`);
   } catch (err) {
     console.error("Unsubscribe error:", err);
