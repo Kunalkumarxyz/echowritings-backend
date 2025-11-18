@@ -36,7 +36,7 @@ function escapeXml(str = '') {
   });
 }
 
-function buildRssXml(posts = [], siteUrl = 'http://localhost:4000') {
+function buildRssXml(posts = [], siteUrl = 'https://echowritings-backend.onrender.com') {
   const base = siteUrl.replace(/\/$/, '');
   let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
   xml += `<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n<channel>\n`;
@@ -90,7 +90,7 @@ module.exports = async function rssHandler(req, res) {
     }
 
     // 3) final fallback: empty list (still return valid RSS)
-    const siteUrl = process.env.SITE_URL || `${req.protocol}://${req.get('host')}` || 'http://localhost:4000';
+    const siteUrl = process.env.SITE_URL || `${req.protocol}://${req.get('host')}` || 'https://echowritings-backend.onrender.com';
 
     const xml = buildRssXml(posts, siteUrl);
 
